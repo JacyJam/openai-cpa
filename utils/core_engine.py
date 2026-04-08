@@ -344,7 +344,7 @@ def test_sub2api_account_direct(item: dict, proxy: str) -> Tuple[bool, str]:
             return False, f"HTTP {resp.status_code}"
             
         data = resp.json()
-        
+
         reason = _extract_cliproxy_failure_reason(data,0)
         if reason:
             return False, reason
@@ -717,7 +717,7 @@ def process_sub2api_worker(i: int, total: int, item: dict, client: Any, args: An
     name = item.get("name", "unknown")
     account_id = item.get("id")
     result, reason = client.test_account(account_id)
-    
+
     if result == "ok":
         print(f"[{ts()}] [SUCCESS] Sub2API测活: {mask_email(name)} 状态健康")
         return True
@@ -891,7 +891,6 @@ async def perform_sub2api_check(args, async_stop_event, loop, client):
         print(f"[{ts()}] [ERROR] 获取 Sub2API 全量库存失败: {account_list}")
         return 0, 0
 
-    account_list = data.get("data", {}).get("items", [])
     total_files = len(account_list)
 
     with ThreadPoolExecutor(max_workers=cfg.SUB2API_THREADS) as executor:
@@ -1040,37 +1039,48 @@ async def sub2api_main_loop(args, async_stop_event: asyncio.Event):
     """Sub2API 智能仓管模式"""
     print("=" * 60)
     print(f"\n[{ts()}] [系统] Sub2API 目标库存阈值: {cfg.SUB2API_MIN_THRESHOLD} | 单次补发量: {cfg.SUB2API_BATCH_COUNT}")
-    print(
-        f"\n[{ts()}] [系统] 周限额剔除规则: 剩余低于 {cfg.SUB2API_MIN_REMAINING_WEEKLY_PERCENT}%"
-        if cfg.SUB2API_MIN_REMAINING_WEEKLY_PERCENT > 0
-        else f"\n[{ts()}] [系统] 周限额剔除规则: 完全耗尽才剔除"
-    )
+    print(f"\n[{ts()}] [系统] Sub2API 限额处理: 仅在真实耗尽后禁用或剔除")
     print("=" * 60)
 
     loop = asyncio.get_running_loop()
     client = Sub2APIClient(api_url=cfg.SUB2API_URL, api_key=cfg.SUB2API_KEY)
 
     while not async_stop_event.is_set():
-        print(f"\n[{ts()}] [INFO] 开始执行 Sub2API 仓库例行巡检与测活...")
+
         try:
-            success, account_list = client.get_all_accounts()
-            if not success:
-                print(f"[{ts()}] [ERROR] 获取 Sub2API 全量库存失败: {account_list}")
-                try: await asyncio.wait_for(async_stop_event.wait(), timeout=60)
-                except asyncio.TimeoutError: pass
-                continue
+            if cfg.SUB2API_AUTO_CHECK:
+                print(f"\n[{ts()}] [INFO] 开始执行 Sub2API 仓库例行巡检与测活...")
+                success, account_list = client.get_all_accounts()
+                if not success:
+                    print(f"[{ts()}] [ERROR] 获取 Sub2API 全量库存失败: {account_list}")
+                    try: await asyncio.wait_for(async_stop_event.wait(), timeout=60)
+                    except asyncio.TimeoutError: pass
+                    continue
 
-            total_files = len(account_list)
+                total_files = len(account_list)
 
-            with ThreadPoolExecutor(max_workers=cfg.SUB2API_THREADS) as executor:
-                futures = [
-                    loop.run_in_executor(executor, process_sub2api_worker, i, total_files, item, client, args)
-                    for i, item in enumerate(account_list, 1)
-                ]
-                results = await asyncio.gather(*futures)
+                with ThreadPoolExecutor(max_workers=cfg.SUB2API_THREADS) as executor:
+                    futures = [
+                        loop.run_in_executor(executor, process_sub2api_worker, i, total_files, item, client, args)
+                        for i, item in enumerate(account_list, 1)
+                    ]
+                    results = await asyncio.gather(*futures)
 
-            valid_count = sum(1 for r in results if r)
-            print(f"[{ts()}] [INFO] 巡检结束，当前 Sub2API 仓库有效数: {valid_count}")
+                valid_count = sum(1 for r in results if r)
+                print(f"[{ts()}] [INFO] 巡检结束，当前 Sub2API 仓库有效数: {valid_count}")
+            else:
+                print(f"[{ts()}] [INFO] Sub2API 自动测活已关闭，直接读取云端列表进行补发判断...")
+                success, account_list = client.get_all_accounts()
+                if not success:
+                    print(f"[{ts()}] [ERROR] 获取 Sub2API 全量库存失败: {account_list}")
+                    try:
+                        await asyncio.wait_for(async_stop_event.wait(), timeout=60)
+                    except asyncio.TimeoutError:
+                        pass
+                    continue
+                total_files = len(account_list)
+                valid_count = total_files
+                print(f"[{ts()}] [INFO] 当前云端总数: {total_files} (未开启自动巡检，默认全部视为有效)")
 
             if valid_count < cfg.SUB2API_MIN_THRESHOLD:
                 need_to_reg          = cfg.SUB2API_BATCH_COUNT
@@ -1085,10 +1095,10 @@ async def sub2api_main_loop(args, async_stop_event: asyncio.Event):
                     if not skip_switch:
                         if not smart_switch_node(p):
                             print(f"[{ts()}] [WARNING] [Sub2API补货] 全局节点切换失败...")
-                    
+
                     result = run(p)
                     status = handle_registration_result(result, cpa_upload=False)
-                    
+
                     if status == "success":
                         token_dict = json.loads(result[0])
                         if hasattr(client, "add_account"):
@@ -1126,7 +1136,7 @@ async def sub2api_main_loop(args, async_stop_event: asyncio.Event):
                                 for _ in range(batch_size)
                             ]
                             reg_results = await asyncio.gather(*reg_futures)
-                            
+
                         for status in reg_results:
                             if status == "success":
                                 success_in_this_cycle += 1
@@ -1134,7 +1144,7 @@ async def sub2api_main_loop(args, async_stop_event: asyncio.Event):
                                 print(f"[{ts()}] [WARNING] 遇到 403 频率限制，给服务器 15 秒冷却时间...")
                                 try: await asyncio.wait_for(async_stop_event.wait(), timeout=15)
                                 except asyncio.TimeoutError: pass
-                                
+
                     else:
                         print(f"[{ts()}] [INFO] 单线程补货: {success_in_this_cycle}/{need_to_reg}")
                         if cfg._clash_enable and cfg._clash_pool_mode:
@@ -1148,13 +1158,13 @@ async def sub2api_main_loop(args, async_stop_event: asyncio.Event):
                             status = await loop.run_in_executor(
                                 None, _sub2api_run_wrapper, args.proxy, True
                             )
-                            
+
                         if status == "success":
                             success_in_this_cycle += 1
                         elif status == "retry_403":
                             try: await asyncio.wait_for(async_stop_event.wait(), timeout=10)
                             except asyncio.TimeoutError: pass
-                            
+
                         try: await asyncio.wait_for(async_stop_event.wait(), timeout=5)
                         except asyncio.TimeoutError: pass
 

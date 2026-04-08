@@ -74,7 +74,10 @@ duckmail:
   api_url: "https://api.duckmail.com"
   # 专属域名 (如 duck.com)，留空则随机使用官方支持的域名
   domain: ""
-
+  mode: duck_official
+  duck_api_token:
+  forward_mode: Gmail_OAuth
+  forward_email: ''
 # [luckmail 鸭子邮箱配置]
 luckmail:
   api_key: ""
@@ -240,4 +243,4 @@ web_password: admin
 #CF账号
 cf_api_email: 
 #CF KEY
-cf_api_key: 
+cf_api_key:

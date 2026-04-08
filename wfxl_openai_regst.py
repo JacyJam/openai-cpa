@@ -798,7 +798,6 @@ async def start_check_api(token: str = Depends(verify_token)):
     engine.start_check(args)
     return {"code": 200, "message": "独立测活指令已下发！"}
 
-
 @app.get("/api/gmail/auth_url")
 async def get_gmail_auth_url(token: str = Depends(verify_token)):
     if not os.path.exists(GMAIL_CLIENT_SECRETS):

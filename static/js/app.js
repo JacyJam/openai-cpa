@@ -3,7 +3,7 @@ const { createApp } = Vue;
 createApp({
     data() {
         return {
-            appVersion: 'v8.7.7',
+            appVersion: 'v8.8.0',
             isLoggedIn: !!localStorage.getItem('auth_token'),
             loginPassword: '',
             currentTab: 'console',
@@ -76,13 +76,13 @@ createApp({
             confirmModal: { show: false, message: '', resolve: null },
             updateInfo: { hasUpdate: false, version: '', url: '', changelog: '' },
             sub2apiGroups: [],
-            isLoadingSub2APIGroups: false,
             gmailOAuth: {
                 authUrl: '',
                 pastedCode: '',
                 isLoading: false,
                 isGenerating: false
-            }
+            },
+            isLoadingSub2APIGroups: false
         };
     },
     mounted() {

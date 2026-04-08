@@ -443,7 +443,8 @@ def run(proxy: Optional[str]) -> tuple:
         print(f"[{cfg.ts()}] [INFO] 正在计算风控算力挑战...")
         sentinel_signup = generate_payload(did=did, flow="authorize_continue", proxy=proxy, user_agent=current_ua,
                                            impersonate="chrome110", ctx=reg_ctx)
-
+        if sentinel_signup:
+            print(f"[{cfg.ts()}] [SUCCESS] 算力挑战成功。")
         signup_headers = _oai_headers(did, {
             "Referer": "https://auth.openai.com/create-account",
             "content-type": "application/json",

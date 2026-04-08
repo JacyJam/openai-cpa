@@ -693,6 +693,33 @@
                                 </div>
 
                                 <div v-if="config.email_api_mode === 'duckmail'" class="space-y-4">
+                                    <div class="p-4 bg-blue-50 border border-blue-200 rounded-xl shadow-sm">
+                                        <label class="form-label text-blue-800 font-bold text-sm">配合收件的临时邮箱模式 (必选)</label>
+                                        <p class="text-[10px] md:text-xs text-blue-600 mb-2 font-medium">
+                                            💡 请选择 Duckmail 转发到的目标邮箱类型。<br>
+                                            <span class="text-red-500">⚠️ 必须先去左侧对应的邮箱菜单里填写好该平台的 API 密钥等参数并保存生效！</span>
+                                        </p>
+                                        <select v-model="config.duckmail.forward_mode" class="form-input bg-white text-sm border-blue-300 font-bold text-blue-700">
+                                            <option value="Gmail_OAuth">Gmail_OAuth (谷歌授权转收)</option>
+<!--                                            <option value="cloudflare_temp_email">cloudflare_temp_email (API转收)</option>-->
+<!--                                            <option value="freemail">Freemail (API转收)</option>-->
+<!--                                            <option value="cloudmail">CloudMail (API转收)</option>-->
+<!--                                            <option value="mail_curl">Mail Curl (API转收)</option>-->
+                                        </select>
+
+                                        <div v-if="config.duckmail.forward_mode !== 'Gmail_OAuth'" class="mt-3">
+                                            <label class="form-label text-blue-800 font-bold text-sm">填入你在 Duckmail 的转发地址收件箱 (必填)</label>
+                                            <input type="text" v-model="config.duckmail.forward_email" class="form-input text-sm border-blue-300" placeholder="例如: your-real-email@cloudmail.com">
+                                            <p class="text-[10px] text-gray-500 mt-1">系统将通过此地址去您选择的平台拉取验证码。</p>
+                                        </div>
+                                    </div>
+                                    <label class="form-checkbox-label mb-3 p-2.5 md:p-3 bg-white rounded-lg border border-gray-200 items-center shadow-sm">
+                                        <input type="checkbox" v-model="config.duckmail.use_proxy" class="form-checkbox mt-0 text-blue-600">
+                                        <div class="ml-2">
+                                            <span class="font-bold text-gray-800 text-xs md:text-sm">Duck 官方接口使用代理</span>
+                                            <p class="text-[10px] md:text-xs text-gray-500 mt-0.5">仅针对 Duck API 生效。上方的配合的转发邮箱依然跟随系统左侧的"全局邮箱代理"开关。</p>
+                                        </div>
+                                    </label>
                                     <label class="form-label">运行模式</label>
                                     <select v-model="config.duckmail.mode" class="form-input text-sm">
                                         <option value="custom_api">自定义 API</option>
@@ -703,7 +730,7 @@
                                         <div class="mb-3 text-[11px] text-indigo-600">
                                             💡 提示：填入 <b>API Token</b> 即可直接使用；若填入 <b>Cookie</b>，系统可在 Token 失效时自动刷新。
                                         </div>
-                                        <label class="form-label text-xs">API Token (选填)</label>
+                                        <label class="form-label text-xs">API Token authorization(必填) 不带Bearer</label>
                                         <input type="text" v-model="config.duckmail.duck_api_token" class="form-input text-xs" placeholder="Bearer Token">
                                         <label class="form-label text-xs mt-3">Cookie (选填，用于自动续期)</label>
                                         <textarea v-model="config.duckmail.duck_cookie" class="form-input text-xs h-20" placeholder="d_id=...; vqd=..."></textarea>

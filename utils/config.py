@@ -158,6 +158,9 @@ DUCKMAIL_MODE: str = "custom_api"
 DUCK_API_TOKEN: str = ""
 DUCK_COOKIE: str = ""
 DUCK_OFFICIAL_API_BASE: str = "https://quack.duckduckgo.com"
+DUCKMAIL_FORWARD_MODE: str = "Gmail_OAuth"
+DUCKMAIL_FORWARD_EMAIL: str = ""
+DUCK_USE_PROXY: bool = True
 
 HERO_SMS_ENABLED: bool = False
 HERO_SMS_API_KEY: str = ""
@@ -220,7 +223,50 @@ def reload_all_configs():
     global CPA_AUTO_CHECK, SUB2API_AUTO_CHECK
     global TG_BOT
     global DUCKMAIL_API_URL, DUCKMAIL_DOMAIN, DUCKMAIL_MODE, DUCK_API_TOKEN, DUCK_COOKIE, DUCK_OFFICIAL_API_BASE
+    global DUCKMAIL_FORWARD_MODE, DUCKMAIL_FORWARD_EMAIL
+    global DUCK_USE_PROXY
+    def safe_int(value, default, minimum=None):
+        try:
+            parsed = int(str(value).strip())
+        except (TypeError, ValueError):
+            parsed = default
+        if minimum is not None:
+            return max(minimum, parsed)
+        return parsed
 
+    def safe_float(value, default, minimum=None):
+        try:
+            parsed = float(str(value).strip())
+        except (TypeError, ValueError):
+            parsed = default
+        if minimum is not None:
+            return max(minimum, parsed)
+        return parsed
+
+    def safe_bool(value, default=False):
+        if isinstance(value, bool):
+            return value
+        if value is None:
+            return default
+        text = str(value).strip().lower()
+        if text in {"1", "true", "yes", "on"}:
+            return True
+        if text in {"0", "false", "no", "off"}:
+            return False
+        return default
+
+    def parse_group_ids(raw_value):
+        if isinstance(raw_value, list):
+            raw_items = raw_value
+        else:
+            raw_items = str(raw_value or "").split(",")
+
+        group_ids = []
+        for item in raw_items:
+            text = str(item).strip()
+            if text.isdigit():
+                group_ids.append(int(text))
+        return group_ids
 
     def safe_int(value, default, minimum=None):
         try:
@@ -269,7 +315,7 @@ def reload_all_configs():
 
     EMAIL_API_MODE   = _c.get("email_api_mode", "cloudflare_temp_email")
     MAIL_DOMAINS     = _c.get("mail_domains", "")
-    GPTMAIL_BASE     = _c.get("gptmail_base", "")
+    GPTMAIL_BASE     = str(_c.get("gptmail_base", "")).strip().rstrip("/")
     ADMIN_AUTH       = _c.get("admin_auth", "")
 
     _imap            = _c.get("imap", {})
@@ -279,16 +325,16 @@ def reload_all_configs():
     IMAP_PASS        = _imap.get("pass", "")
 
     _free            = _c.get("freemail", {})
-    FREEMAIL_API_URL = _free.get("api_url", "")
+    FREEMAIL_API_URL = str(_free.get("api_url", "")).strip().rstrip("/")
     FREEMAIL_API_TOKEN = _free.get("api_token", "")
   
     _cm              = _c.get("cloudmail", {})
-    CM_API_URL       = _cm.get("api_url", "").rstrip("/")
+    CM_API_URL       = str(_cm.get("api_url", "")).strip().rstrip("/")
     CM_ADMIN_EMAIL   = _cm.get("admin_email", "")
     CM_ADMIN_PASS    = _cm.get("admin_password", "")
 
     _mc              = _c.get("mail_curl", {})
-    MC_API_BASE      = _mc.get("api_base", "").rstrip("/")
+    MC_API_BASE      = str(_mc.get("api_base", "")).strip().rstrip("/")
     MC_KEY           = _mc.get("key", "")
 
     DEFAULT_PROXY    = format_docker_url(_c.get("default_proxy", ""))
@@ -305,7 +351,7 @@ def reload_all_configs():
     _cpa             = _c.get("cpa_mode", {})
     ENABLE_CPA_MODE  = _cpa.get("enable", False)
     SAVE_TO_LOCAL_IN_CPA_MODE = _cpa.get("save_to_local", True)
-    CPA_API_URL      = format_docker_url(_cpa.get("api_url", ""))
+    CPA_API_URL      = format_docker_url(str(_cpa.get("api_url", "")).strip()).rstrip("/")
     CPA_API_TOKEN    = _cpa.get("api_token", "")
     MIN_ACCOUNTS_THRESHOLD  = _cpa.get("min_accounts_threshold", 30)
     BATCH_REG_COUNT  = _cpa.get("batch_reg_count", 1)
@@ -319,7 +365,7 @@ def reload_all_configs():
 
     _sub2api = _c.get("sub2api_mode", {})
     ENABLE_SUB2API_MODE = _sub2api.get("enable", False)
-    SUB2API_URL         = format_docker_url(_sub2api.get("api_url", ""))
+    SUB2API_URL         = format_docker_url(str(_sub2api.get("api_url", "")).strip()).rstrip("/")
     SUB2API_KEY         = _sub2api.get("api_key", "")
     SUB2API_MIN_THRESHOLD = _sub2api.get("min_accounts_threshold", 70)
     SUB2API_BATCH_COUNT = _sub2api.get("batch_reg_count", 2)
@@ -373,7 +419,7 @@ def reload_all_configs():
     _hero_sms_conf = _c.get("hero_sms", {})
     HERO_SMS_ENABLED = _hero_sms_conf.get("enabled", False)
     HERO_SMS_API_KEY = _hero_sms_conf.get("api_key", "")
-    HERO_SMS_BASE_URL = _hero_sms_conf.get("base_url", "https://hero-sms.com/stubs/handler_api.php")
+    HERO_SMS_BASE_URL = str(_hero_sms_conf.get("base_url", "https://hero-sms.com/stubs/handler_api.php")).strip().rstrip("/")
     HERO_SMS_COUNTRY = _hero_sms_conf.get("country", "US")
     HERO_SMS_SERVICE = _hero_sms_conf.get("service", "dr")
     HERO_SMS_AUTO_PICK_COUNTRY = _hero_sms_conf.get("auto_pick_country", False)
@@ -401,7 +447,7 @@ def reload_all_configs():
 
 
     _ai = _c.get("ai_service", {})
-    AI_API_BASE = _ai.get("api_base", "https://api.openai.com/v1")
+    AI_API_BASE = str(_ai.get("api_base", "https://api.openai.com/v1")).strip().rstrip("/")
     AI_API_KEY = _ai.get("api_key", "")
     AI_MODEL = _ai.get("model", "gpt-3.5-turbo")
     AI_ENABLE_PROFILE = _ai.get("enable_profile", False)
@@ -424,6 +470,9 @@ def reload_all_configs():
     DUCK_API_TOKEN = str(_duck.get("duck_api_token") or "").strip()
     DUCK_COOKIE = str(_duck.get("duck_cookie") or "").strip()
     DUCK_OFFICIAL_API_BASE = str(_duck.get("duck_api_base_url") or "https://quack.duckduckgo.com").rstrip("/")
+    DUCKMAIL_FORWARD_MODE = str(_duck.get("forward_mode") or "Gmail_OAuth").strip()
+    DUCKMAIL_FORWARD_EMAIL = str(_duck.get("forward_email") or "").strip()
+    DUCK_USE_PROXY = safe_bool(_duck.get("use_proxy", True), default=True)
 
     reload_proxy_config()
     print(f"[{ts()}] [系统] 核心配置已完成同步。")
