@@ -697,26 +697,35 @@ async def stream_logs(request: Request, token: str = Query(None)):
     if token not in VALID_TOKENS: raise HTTPException(status_code=401, detail="Unauthorized")
 
     async def log_generator():
-        last_idx = len(log_history)
-        for old_msg in log_history: yield f"data: {old_msg}\n\n"
-
+        current_snapshot = list(log_history)
+        for old_msg in current_snapshot:
+            yield f"data: {old_msg}\n\n"
+        last_sent_msg = current_snapshot[-1] if current_snapshot else None
         idle_loops = 0
 
         try:
             while True:
-                if await request.is_disconnected(): break
-                if len(log_history) > last_idx:
-                    for i in range(last_idx, len(log_history)):
-                        yield f"data: {log_history[i]}\n\n"
-                    last_idx = len(log_history)
+                if await request.is_disconnected():
+                    break
+                snap = list(log_history)
+                if snap and snap[-1] != last_sent_msg:
+                    start_idx = 0
+                    for i in range(len(snap) - 1, -1, -1):
+                        if snap[i] == last_sent_msg:
+                            start_idx = i + 1
+                            break
+                    for i in range(start_idx, len(snap)):
+                        yield f"data: {snap[i]}\n\n"
+                    last_sent_msg = snap[-1]
                     idle_loops = 0
                 else:
                     idle_loops += 1
                     if idle_loops >= 50:
                         yield ": keepalive\n\n"
                         idle_loops = 0
+
                 await asyncio.sleep(0.3)
-        except asyncio.CancelledError:
+        except Exception:
             pass
 
     return StreamingResponse(log_generator(), media_type="text/event-stream")

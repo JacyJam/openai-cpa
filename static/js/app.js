@@ -3,7 +3,7 @@ const { createApp } = Vue;
 createApp({
     data() {
         return {
-            appVersion: 'v9.0.2',
+            appVersion: 'v9.0.3',
             isLoggedIn: !!localStorage.getItem('auth_token'),
             loginPassword: '',
             currentTab: window.location.hash.replace('#', '') || 'console',
@@ -623,33 +623,33 @@ createApp({
             this.logFlushTimer = setInterval(() => {
                 if (this.logBuffer.length > 0) {
                     const container = document.getElementById('terminal-container');
-
                     let isScrolledToBottom = true;
                     if (container) {
-                        isScrolledToBottom = container.scrollHeight - container.clientHeight <= container.scrollTop + 50;
+                        isScrolledToBottom = container.scrollHeight - container.clientHeight <= container.scrollTop + 100;
                     }
-
                     this.logs.push(...this.logBuffer);
                     this.logBuffer = [];
 
                     if (this.logs.length > 500) {
                         this.logs.splice(0, this.logs.length - 500);
                     }
-
                     this.$nextTick(() => {
-                        if (container && (isScrolledToBottom || this.logs.length < 50)) {
-                            container.scrollTop = container.scrollHeight;
+                        if (container && (isScrolledToBottom || this.logs.length < 20)) {
+                            container.scrollTo({
+                                top: container.scrollHeight,
+                                behavior: 'auto'
+                            });
                         }
                     });
                 }
-            }, 200);
+            }, 300);
 
             this.evtSource.onmessage = (event) => {
                 let rawText = event.data;
                 rawText = rawText.trim();
                 if (!rawText) return;
 
-                let logObj = { parsed: false, raw: rawText };
+                let logObj = { id: Date.now() + Math.random(), parsed: false, raw: rawText };
                 const regex = /^\[(.*?)\]\s*\[(.*?)\]\s+(.*)$/;
                 const match = rawText.match(regex);
 
