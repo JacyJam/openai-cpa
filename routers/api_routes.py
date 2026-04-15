@@ -1141,6 +1141,7 @@ async def update_mailboxes_status(req: UpdateMailboxStatusReq, token: str = Depe
     for email in req.emails:
         try:
             db_manager.update_local_mailbox_status(email, req.status)
+            db_manager.clear_retry_master_status(email)
             success_count += 1
         except Exception as e:
             pass
