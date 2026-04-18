@@ -1304,6 +1304,7 @@ def run(proxy: Optional[str], run_ctx: dict = None) -> tuple:
                                                 code_verifier=oauth_log.code_verifier,
                                                 proxies=proxies,
                                             ), password
+                                current_url = next_url_or_reason
                             else:
                                 print(f"[{cfg.ts()}] [ERROR] （{mask_email(email)}） {next_url_or_reason}")
                             break
