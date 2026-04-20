@@ -1062,21 +1062,36 @@ async def perform_sub2api_check(args, async_stop_event, loop, client, executor=N
     print(f"[{ts()}] [INFO] Sub2API 测活结束，当前有效数: {valid_count} / {total_files}")
     return valid_count, total_files
 
+
 async def manual_check_main_loop(args, async_stop_event: asyncio.Event, executor=None):
     print("=" * 60)
     print(f"\n[{ts()}] [系统] >>> 启动独立测活清理任务 <<<")
     print("=" * 60)
     loop = asyncio.get_running_loop()
 
+    check_task = None
+
     if cfg.ENABLE_CPA_MODE:
-        await perform_cpa_check(args, async_stop_event, loop, executor=executor)
+        check_task = asyncio.create_task(perform_cpa_check(args, async_stop_event, loop, executor=executor))
     elif cfg.ENABLE_SUB2API_MODE:
         client = Sub2APIClient(api_url=cfg.SUB2API_URL, api_key=cfg.SUB2API_KEY)
-        await perform_sub2api_check(args, async_stop_event, loop, client, executor=executor)
+        check_task = asyncio.create_task(perform_sub2api_check(args, async_stop_event, loop, client, executor=executor))
     else:
         print(f"[{ts()}] [WARNING] 当前未开启 CPA 或 Sub2API 模式，无法执行仓管测活。")
 
-    print(f"\n[{ts()}] [SUCCESS] 独立测活任务执行完毕！")
+    if check_task:
+        stop_task = asyncio.create_task(async_stop_event.wait())
+        done, pending = await asyncio.wait(
+            [check_task, stop_task],
+            return_when=asyncio.FIRST_COMPLETED
+        )
+
+        if stop_task in done:
+            print(f"\n[{ts()}] [INFO] 🛑 接收到强制停止信号，已瞬间中断测活任务！")
+            check_task.cancel()
+        else:
+            print(f"\n[{ts()}] [SUCCESS] 独立测活任务执行完毕！")
+
     cfg.GLOBAL_STOP = True
     async_stop_event.set()
 
@@ -1461,7 +1476,7 @@ class RegEngine:
 
     def _shutdown_executor(self):
         if self._executor is not None:
-            self._executor.shutdown(wait=False)
+            self._executor.shutdown(wait=False, cancel_futures=True)
             self._executor = None
 
     def _finalize_thread_run(self):
@@ -1551,7 +1566,7 @@ class RegEngine:
         self.thread_stop_event.set()
         if self.loop and self.async_stop_event:
             self.loop.call_soon_threadsafe(self.async_stop_event.set)
-
+        time.sleep(0.5)
         self._shutdown_executor()
         if cfg.EMAIL_API_MODE in ["local_microsoft", "gmail_fission"]:
             try:
