@@ -217,8 +217,11 @@ def delete_accounts_by_emails(emails: list) -> bool:
     try:
         with get_db_conn(is_write=True) as conn:
             c = get_cursor(conn)
-            placeholders = ','.join(['?'] * len(emails))
-            execute_sql(c, f"DELETE FROM accounts WHERE email IN ({placeholders})", tuple(emails))
+            chunk_size = 900
+            for i in range(0, len(emails), chunk_size):
+                chunk = emails[i:i + chunk_size]
+                placeholders = ','.join(['?'] * len(chunk))
+                execute_sql(c, f"DELETE FROM accounts WHERE email IN ({placeholders})", tuple(chunk))
             return True
     except Exception as e:
         print(f"[{cfg.ts()}] [ERROR] 数据库批量删除账号异常: {e}")
