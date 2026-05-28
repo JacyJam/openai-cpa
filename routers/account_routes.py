@@ -346,10 +346,10 @@ def get_cloud_accounts(background_tasks: BackgroundTasks, types: str = "sub2api,
                     extra = item.get("extra", {})
                     account_id = str(item.get("id", ""))
                     window_stats = {}
-                    if account_id:
-                        usage_ok, usage_data = client.get_account_usage(account_id)
-                        if usage_ok and isinstance(usage_data, dict):
-                            window_stats = usage_data.get("data", {}).get("five_hour", {}).get("window_stats", {})
+                    # if account_id:
+                    #     usage_ok, usage_data = client.get_account_usage(account_id)
+                    #     if usage_ok and isinstance(usage_data, dict):
+                    #         window_stats = usage_data.get("data", {}).get("five_hour", {}).get("window_stats", {})
                     return {
                         "id": account_id,
                         "account_type": "sub2api",
@@ -454,6 +454,31 @@ def get_cloud_accounts(background_tasks: BackgroundTasks, types: str = "sub2api,
     except Exception as e:
         return {"status": "error", "message": f"拉取云端库存数据失败: {e}"}
 
+class BulkUsageRequest(BaseModel):
+    account_ids: List[str]
+
+@router.post("/api/cloud/sub2api/usage/bulk")
+def bulk_get_sub2api_usage(req: BulkUsageRequest, token: str = Depends(verify_token)):
+    if not getattr(cfg, 'SUB2API_URL', None) or not getattr(cfg, 'SUB2API_KEY', None):
+        return {"status": "error", "message": "Sub2API 配置未填写"}
+
+    try:
+        client = Sub2APIClient(api_url=cfg.SUB2API_URL, api_key=cfg.SUB2API_KEY)
+        results = {}
+
+        def fetch_usage(acc_id):
+            ok, data = client.get_account_usage(acc_id)
+            if ok and isinstance(data, dict):
+                return acc_id, data.get("data", {}).get("five_hour", {}).get("window_stats", {})
+            return acc_id, {}
+
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            for acc_id, stats in executor.map(fetch_usage, req.account_ids):
+                results[acc_id] = stats
+
+        return {"status": "success", "data": results}
+    except Exception as e:
+        return {"status": "error", "message": f"批量获取异常: {str(e)}"}
 
 @router.post("/api/cloud/action")
 def process_cloud_action(req: CloudActionReq, token: str = Depends(verify_token)):

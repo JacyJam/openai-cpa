@@ -5042,5 +5042,44 @@ async exportSub2Api() {
             await this.triggerOAuthUpgrade("ALL");
             this.isUpgradingOAuthAll = false;
         },
+        async bulkFetchSub2ApiUsage() {
+            const sub2apiIds = this.selectedCloud
+                .filter(val => val.endsWith('|sub2api'))
+                .map(val => val.split('|')[0]);
+
+            if (sub2apiIds.length === 0) {
+                this.showToast('当前选中的账号中没有 Sub2API 类型的账号，无法获取利用率。', 'warning');
+                return;
+            }
+
+            this.isCloudActionLoading = true;
+            try {
+                const response = await this.authFetch('/api/cloud/sub2api/usage/bulk', {
+                    method: 'POST',
+                    body: JSON.stringify({ account_ids: sub2apiIds })
+                });
+
+                const res = await response.json();
+
+                if (res.status === 'success') {
+                    const usageData = res.data;
+                    this.cloudAccounts.forEach(acc => {
+                        if (acc.account_type === 'sub2api' && usageData[acc.id]) {
+                            if (!acc.details) {
+                                acc.details = {};
+                            }
+                            acc.details.window_stats = usageData[acc.id];
+                        }
+                    });
+                    this.showToast(`成功刷新了 ${sub2apiIds.length} 个账号的额度利用率！`, 'success');
+                } else {
+                    this.showToast(res.message || '获取利用率失败', 'error');
+                }
+            } catch (e) {
+                this.showToast('网络错误: ' + e.message, 'error');
+            } finally {
+                this.isCloudActionLoading = false;
+            }
+        }
     }
 }).mount('#app');
